@@ -58,14 +58,115 @@ function handleClick(index, element) {
     // Füge das SVG entsprechend dem aktuellen Spieler in das td ein
     if (currentPlayer === 'circle') {
         element.innerHTML = generateSvgCircle();
-        currentPlayer = 'cross'; // Wechsle zum nächsten Spieler
     } else {
         element.innerHTML = generateSvgCross();
-        currentPlayer = 'circle'; // Wechsle zum nächsten Spieler
     }
 
     // Entferne das onclick-Attribut, um weitere Klicks zu verhindern
     element.onclick = null;
+
+     // Speichere den aktuellen Spieler, bevor der Wechsel erfolgt
+     const winningPlayer = currentPlayer;
+
+     // Wechsle zum nächsten Spieler
+     currentPlayer = (currentPlayer === 'circle') ? 'cross' : 'circle';
+ 
+     let result = checkGameStatus();
+     if (result) {
+         drawWinningLine(result, winningPlayer);
+     }
+}
+
+function checkGameStatus() {
+    const winningCombos = [
+        [0, 1, 2], // Erste Reihe
+        [3, 4, 5], // Zweite Reihe
+        [6, 7, 8], // Dritte Reihe
+        [0, 3, 6], // Erste Spalte
+        [1, 4, 7], // Zweite Spalte
+        [2, 5, 8], // Dritte Spalte
+        [0, 4, 8], // Erste Diagonale
+        [2, 4, 6]  // Zweite Diagonale
+    ];
+
+    for (const [a, b, c] of winningCombos) {
+        if (fields[a] && fields[a] === fields[b] && fields[a] === fields[c]) {
+            return [a, b, c]; // Rückgabe der gewonnenen Felder
+        }
+    }
+
+    return null; // Kein Ergebnis
+}
+
+function drawWinningLine(winningCombo, winner) {
+    if (winningCombo) {
+        // Um das gewonnene Tabellenfeld zu markieren
+        const cells = document.querySelectorAll('#content table td');
+        winningCombo.forEach(index => {
+            cells[index].style.backgroundColor = '#FFFFFF';
+            cells[index].style.borderRadius = '0'; // Setze die Hintergrundfarbe auf Weiß
+        });
+
+        // Erstelle ein Container für das Gewinnerbild und die Krone
+        const container = document.createElement('div');
+        container.classList.add('winner-container');
+        container.style.position = 'absolute';
+        container.style.top = '250px'; // Abstand von oben, um die Tabelle nicht zu verschieben
+        container.style.left = '50%';
+        container.style.transform = 'translateX(-50%)';
+        container.style.textAlign = 'center';
+        container.style.zIndex = '1000'; // Damit die Krone über anderen Inhalten liegt
+        
+         // Erstelle das SVG für den Gewinner
+         let winnerSvg;
+         if (winner === 'circle') {
+             winnerSvg = generateSvgCircle();
+         } else if (winner === 'cross') {
+             winnerSvg = generateSvgCross();
+         }
+        
+          // Füge das Gewinner-SVG und die Krone in den Container ein
+          container.innerHTML = `
+          <div style="position: relative; display: inline-block;">
+              ${winnerSvg}
+              <img src="./img/krone.png" alt="Krone" style="position: absolute; top: -48px; left: 3px; width: 64px; height: 64px;">
+          </div>
+      `;
+
+        // Füge den Container nach der h1 und vor dem #content div hinzu
+        const h1 = document.querySelector('h1');
+        const contentDiv = document.getElementById('content');
+        document.body.insertBefore(container, contentDiv);
+
+        // Verhindere weitere Klicks
+        const allCells = document.querySelectorAll('#content table td');
+        allCells.forEach(cell => {
+            cell.onclick = null;
+        });
+    }
+}
+
+function restartGame(){
+    const winnerContainer = document.querySelector('.winner-container');
+    if (winnerContainer) {
+        winnerContainer.remove();
+    }
+
+    fields = [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+    ];
+
+    currentPlayer = 'circle';
+
+    render();
 }
 
 function generateSvgCircle() {
