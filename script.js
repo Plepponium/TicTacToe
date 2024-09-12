@@ -14,6 +14,7 @@ let currentPlayer = 'circle';
 
 function init(){
     render();
+    updatePlayerInfoBackground()
 }
 
 function render() {
@@ -26,21 +27,17 @@ function render() {
             let fieldIndex = i * 3 + j; // Berechnet den Index im Array
             let field = fields[fieldIndex]; // Erhalte den Wert aus dem Array
             let content = '';
-
             if (field === 'circle') {
                 content = generateSvgCircle();
             } else if (field === 'cross') {
                 content = generateSvgCross();
             }
-
             // Füge das td-Element mit dem onclick-Attribut hinzu
             tableHTML += `<td onclick="handleClick(${fieldIndex}, this)">${content}</td>`;
         }
         tableHTML += '</tr>';
     }
-
     tableHTML += '</table>';
-
     // Setze das generierte HTML in das div mit der id="content"
     document.getElementById('content').innerHTML = tableHTML;
 }
@@ -51,30 +48,30 @@ function handleClick(index, element) {
     if (fields[index] !== null) {
         return; // Falls das Feld belegt ist, nichts tun
     }
-
     // Setze den aktuellen Spieler in das Array fields
     fields[index] = currentPlayer;
-
     // Füge das SVG entsprechend dem aktuellen Spieler in das td ein
     if (currentPlayer === 'circle') {
         element.innerHTML = generateSvgCircle();
     } else {
         element.innerHTML = generateSvgCross();
     }
-
     // Entferne das onclick-Attribut, um weitere Klicks zu verhindern
     element.onclick = null;
 
      // Speichere den aktuellen Spieler, bevor der Wechsel erfolgt
      const winningPlayer = currentPlayer;
-
      // Wechsle zum nächsten Spieler
      currentPlayer = (currentPlayer === 'circle') ? 'cross' : 'circle';
  
+     updatePlayerInfoBackground();
+
      let result = checkGameStatus();
      if (result) {
          drawWinningLine(result, winningPlayer);
-     }
+     } else {
+        checkForDraw(); // Unentschieden überprüfen, falls es keinen Gewinner gibt
+    }
 }
 
 function checkGameStatus() {
@@ -107,38 +104,78 @@ function drawWinningLine(winningCombo, winner) {
             cells[index].style.borderRadius = '0'; // Setze die Hintergrundfarbe auf Weiß
         });
 
-        // Erstelle ein Container für das Gewinnerbild und die Krone
-        const container = document.createElement('div');
-        container.classList.add('winner-container');
-        container.style.position = 'absolute';
-        container.style.top = '250px'; // Abstand von oben, um die Tabelle nicht zu verschieben
-        container.style.left = '50%';
-        container.style.transform = 'translateX(-50%)';
-        container.style.textAlign = 'center';
-        container.style.zIndex = '1000'; // Damit die Krone über anderen Inhalten liegt
-        
-         // Erstelle das SVG für den Gewinner
-         let winnerSvg;
-         if (winner === 'circle') {
-             winnerSvg = generateSvgCircle();
-         } else if (winner === 'cross') {
-             winnerSvg = generateSvgCross();
-         }
-        
-          // Füge das Gewinner-SVG und die Krone in den Container ein
-          container.innerHTML = `
-          <div style="position: relative; display: inline-block;">
-              ${winnerSvg}
-              <img src="./img/krone.png" alt="Krone" style="position: absolute; top: -48px; left: 3px; width: 64px; height: 64px;">
-          </div>
-      `;
-
-        // Füge den Container nach der h1 und vor dem #content div hinzu
-        const h1 = document.querySelector('h1');
-        const contentDiv = document.getElementById('content');
-        document.body.insertBefore(container, contentDiv);
-
         // Verhindere weitere Klicks
+        const allCells = document.querySelectorAll('#content table td');
+        allCells.forEach(cell => {
+            cell.onclick = null;
+        });
+        updateScore(winner);
+    }
+}
+
+function checkForDraw() {
+    // Prüfen, ob alle Felder ausgefüllt sind
+    const allFilled = fields.every(field => field !== null);
+
+    // Wenn alle Felder belegt sind und keine Gewinner-Kombination, dann ist es ein Unentschieden
+    if (allFilled) {
+        setTimeout(() => {
+            alert("Unentschieden! Das Spiel wird neu gestartet.");
+            restartGame(); // Spiel neustarten
+        }, 500); // Kurze Verzögerung für die Benutzererfahrung
+    }
+}
+
+function updateScore(winner) {
+    let scoreElement;
+    let svgContainer;
+    let crown;
+
+    if (winner === 'circle') {
+        scoreElement = document.getElementById('circle-score');
+        svgContainer = document.querySelector('#playerinfo .player svg'); // SVG für Circle
+    } else if (winner === 'cross') {
+        scoreElement = document.getElementById('cross-score');
+        svgContainer = document.querySelector('#playerinfo .player:nth-of-type(2) svg'); // SVG für Cross
+    }
+
+    // Erhöhe den Score und aktualisiere den Inhalt
+    let score = parseInt(scoreElement.innerHTML);
+    scoreElement.innerHTML = score + 1;
+
+    // Erstelle das "+1"-Element
+    const plusOne = document.createElement('span');
+    plusOne.innerHTML = '+1';
+    plusOne.classList.add('plus-one-animation');
+    
+    // Füge das Element neben dem Score ein
+    scoreElement.parentElement.appendChild(plusOne);
+
+    // Entferne das "+1"-Element nach der Animation
+    setTimeout(() => {
+        plusOne.remove();
+    }, 1000);
+
+    // Füge die Krone hinzu, wenn der Spieler 3 Punkte erreicht
+    if (score + 1 === 3) {
+        crown = document.createElement('img');
+        crown.src = './img/krone.png';
+        crown.alt = 'Krone';
+        crown.style.position = 'absolute';
+        crown.style.top = '-50px'; // Position der Krone über dem Punktestand
+        crown.style.width = '64px';
+        crown.style.height = '64px';
+
+        // Füge die Krone relativ zum entsprechenden SVG hinzu
+        svgContainer.style.position = 'relative'; // Stelle sicher, dass das SVG relativ positioniert ist
+        svgContainer.parentElement.style.position = 'relative'; // Stelle sicher, dass der Container relativ positioniert ist
+        svgContainer.parentElement.appendChild(crown);
+
+        // Spiele den Gewinner-Sound ab
+        const winnerAudio = new Audio('./audio/winner.mp3');
+        winnerAudio.play();
+
+        // Deaktiviere weitere Klicks
         const allCells = document.querySelectorAll('#content table td');
         allCells.forEach(cell => {
             cell.onclick = null;
@@ -167,6 +204,22 @@ function restartGame(){
     currentPlayer = 'circle';
 
     render();
+}
+
+function updatePlayerInfoBackground() {
+    const playerInfo = document.getElementById('playerinfo');
+    const circlePlayer = playerInfo.querySelector('.player:first-of-type svg');
+    const crossPlayer = playerInfo.querySelector('.player:nth-of-type(2) svg');
+    
+    // Füge die Hintergrundfarbe basierend auf dem aktuellen Spieler hinzu
+    if (currentPlayer === 'circle') {
+        circlePlayer.classList.add('player-circle');
+        crossPlayer.classList.remove('player-cross');
+        
+    } else {
+        crossPlayer.classList.add('player-cross');
+        circlePlayer.classList.remove('player-circle');
+    }
 }
 
 function generateSvgCircle() {
